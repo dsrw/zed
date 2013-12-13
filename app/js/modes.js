@@ -17,6 +17,9 @@ define(function(require, exports, module) {
     // Mappings from particular file names to mode name, e.g. "Makefile" -> "makefile"
     var filenameMapping = {};
 
+    // Mappings to match a regexp to a file name, e.g. /^*.html\.erb$/ -> "rhtml"
+    var regexpMapping = {};
+
     // Mode to use if all else fails
     var fallbackMode = {
         language: "text",
@@ -60,6 +63,7 @@ define(function(require, exports, module) {
     function updateMappings() {
         extensionMapping = {};
         filenameMapping = {};
+        regexpMapping = {};
         _.each(modes, function(mode) {
             if (mode.extensions) {
                 mode.extensions.forEach(function(ext) {
@@ -69,6 +73,11 @@ define(function(require, exports, module) {
             if (mode.filenames) {
                 mode.filenames.forEach(function(filename) {
                     filenameMapping[filename] = mode.language;
+                });
+            }
+            if (mode.matches) {
+                mode.matches.forEach(function(regexp) {
+                    regexpMapping[regexp] = mode.language;
                 });
             }
         });
@@ -147,12 +156,18 @@ define(function(require, exports, module) {
         if (filenameMapping[filename]) {
             return exports.get(filenameMapping[filename]);
         }
+
+        for (var regexp in regexpMapping) {
+            if (filename.match(new RegExp(regexp, 'i'))) {
+                return exports.get(regexpMapping[regexp]);
+            }
+        }
+
         var ext = path.ext(path_);
         if (extensionMapping[ext]) {
             return exports.get(extensionMapping[ext]);
-        } else {
-            return fallbackMode;
         }
+        return fallbackMode;
     };
 
     exports.setSessionMode = function(session, mode) {

@@ -261,7 +261,7 @@ define(function(require, exports, module) {
         search.$options.wrap = true;
         search.$options.needle = needle;
         search.$options.caseSensitive = true;
-        search.$options.wholeWord = true;
+        search.$options.wholeWord = config.getPreference("searchWholeWorld");
         search.$options.backwards = dir == -1;
         return search.find(session);
     }
