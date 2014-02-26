@@ -3,7 +3,7 @@ define(function(require, exports, module) {
     "use strict";
 
     var command = require("./command");
-    var Autocomplete = ace.require("ace/autocomplete").Autocomplete;
+    var Autocomplete = require("ace/autocomplete").Autocomplete;
 
     var async = require("async");
     var config = require("./config");
@@ -12,8 +12,8 @@ define(function(require, exports, module) {
 
     var completer = {
         getCompletions: function(edit, session, pos, prefix, callback) {
-            var modeCompleteCommands = session.mode.events.complete;
-            var globalCompleteCommands = config.getEvents().complete;
+            var modeCompleteCommands = session.mode.handlers.complete;
+            var globalCompleteCommands = config.getHandlers().complete;
             var results = [];
             var completeCommands = [];
             if (modeCompleteCommands) {

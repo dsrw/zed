@@ -4,7 +4,6 @@ define(function(require, exports, module) {
     var eventbus = require("./lib/eventbus");
     var command = require("./command");
     var path = require("./lib/path");
-    var events = require("./events");
 
     eventbus.declare("modesloaded");
     eventbus.declare("modeset");
@@ -25,7 +24,7 @@ define(function(require, exports, module) {
         language: "text",
         name: "Plain Text",
         highlighter: "ace/mode/text",
-        events: {},
+        handlers: {},
         commands: {},
         preferences: {},
         keys: {},
@@ -48,6 +47,9 @@ define(function(require, exports, module) {
             }
             if (!mode.preferences) {
                 mode.preferences = {};
+            }
+            if (!mode.handlers) {
+                mode.handlers = {};
             }
         });
     }
@@ -111,7 +113,7 @@ define(function(require, exports, module) {
                         require(["./sandbox"], function(sandbox) {
                             var cmd = commandSpec.modeCommand[session.mode.language];
                             if (cmd) {
-                                sandbox.execCommand(cmd, session, function(err, result) {
+                                sandbox.execCommand(name, cmd, session, function(err, result) {
                                     if (err) {
                                         return console.error(err);
                                     }

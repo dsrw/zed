@@ -1,11 +1,12 @@
 {
     "preferences": {
-        "theme": "ace/theme/textmate",
+        "theme": "zed_dark",
         "highlightActiveLine": true,
         "highlightGutterLine": true,
         "defaultMode": "ace/mode/text",
         "detectIndentation": true,
         "fontSize": 12,
+        "fontFamily": "'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace",
         "showPrintMargin": true,
         "printMarginColumn": 80,
         "showInvisibles": false,
@@ -26,8 +27,10 @@
         "trimEmptyLines": true,
         "hygienicMode": false,
         "hygienicModeRemote": true,
-        "recentFolderHistory": 5,
+        "recentFolderHistory": 10,
         "showContextBar": false,
-        "dimInactiveEditors": true
+        "dimInactiveEditors": true,
+        "spellCheck": false,
+        "gotoExclude": ["/tags"]
     }
 }

@@ -1,5 +1,0 @@
-{
-    "events": {
-        "complete": ["Tools:Complete:CTags", "Tools:Complete:Text"]
-    }
-}

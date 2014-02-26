@@ -2,19 +2,24 @@
 define(function(require, exports, module) {
     "use strict";
 
-    var useragent = ace.require("ace/lib/useragent");
+    var useragent = require("ace/lib/useragent");
     var eventbus = require("./lib/eventbus");
 
     var commands = {};
-    var userCommands = {};
+    
+    // Commands coming from configuration somehow (user commands, theme commands)
+    var configCommands = {};
 
+    // Triggered by mode.js when mode commands were loaded
     eventbus.declare("commandsloaded");
+    // Triggered when config commands were reset and should be reloaded from config
+    eventbus.declare("configcommandsreset");
 
     function defineUserCommand(name, cmd) {
-        userCommands[name] = {
+        exports.defineConfig(name, {
             exec: function(edit, session, callback) {
                 require(["./sandbox"], function(sandbox) {
-                    sandbox.execCommand(cmd, edit.getSession(), function(err, result) {
+                    sandbox.execCommand(name, cmd, session, function(err, result) {
                         if (err) {
                             console.error(err);
                         }
@@ -23,15 +28,16 @@ define(function(require, exports, module) {
                 });
             },
             readOnly: cmd.readOnly
-        };
+        });
     }
-
+    
     exports.hook = function() {
         eventbus.on("configchanged", function(config) {
-            userCommands = {};
+            configCommands = {};
             _.each(config.getCommands(), function(cmd, name) {
                 defineUserCommand(name, cmd);
             });
+            eventbus.emit("configcommandsreset", config);
         });
     };
 
@@ -47,16 +53,22 @@ define(function(require, exports, module) {
         def.name = path;
         commands[path] = def;
     };
+    
+    exports.defineConfig = function(path, def) {
+        def.name = path;
+        configCommands[path] = def;
+    };
+    
 
     exports.lookup = function(path) {
-        var cmd = userCommands[path];
+        var cmd = configCommands[path];
         if (cmd) {
             return cmd;
         }
         return commands[path];
     };
 
-    exports.exec = function(path, edit, session, otherArgs) {
+    exports.exec = function(path, edit, session, callback) {
         var def = exports.lookup(path);
         if (!session.getTokenAt) { // Check if this is a session object
             console.error("Did not pass in session to exec", arguments);
@@ -65,7 +77,7 @@ define(function(require, exports, module) {
     };
 
     exports.allCommands = function() {
-        return Object.keys(userCommands).concat(Object.keys(commands));
+        return Object.keys(configCommands).concat(Object.keys(commands));
     };
 
     exports.define("Command:Enter Command", {
@@ -123,35 +135,6 @@ define(function(require, exports, module) {
                         exports.exec(cmd, edit, edit.getSession());
                     }
                 });
-            });
-        },
-        readOnly: true
-    });
-
-    exports.define("Project:Open Local Folder", {
-        exec: function() {
-            chrome.app.window.create('editor.html?url=local:&title=Local Folder&chromeapp=true', {
-                frame: 'chrome',
-                width: 720,
-                height: 400,
-            });
-        },
-        readOnly: true
-    });
-    
-    exports.define("Project:Open Project Picker", {
-        exec: function() {
-            window.opener.focusMe();
-        },
-        readOnly: true
-    });
-
-    exports.define("Configuration:Edit Preferences", {
-        exec: function() {
-            chrome.app.window.create('editor.html?url=config:&title=Configuration&chromeapp=true', {
-                frame: 'chrome',
-                width: 720,
-                height: 400,
             });
         },
         readOnly: true

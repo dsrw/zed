@@ -9,19 +9,22 @@ to open the goto box to quickly jump to a topic.
 To quickly navigate to a help topic whose file name appears in the text,
 put your cursor on the file name and press `Command-Shift-E`/`Ctrl-Shift-E`.
 
+General
+-------
+
+* Managing projects: projects.md
+* Changelog: changelog.md
+* Zed's features: features.md
+* Essential keyboard shortcuts: intro.md
+* Configuring and extending Zed: configuration.md
+* Tips and tricks: protips.md
+
 How to
 ------
 
-* Edit local files with Zed: howto/local.md
+* Search & Replace: howto/search_replace.md
 * Edit remote files with Zed: howto/remote.md
 * Navigate a project: howto/navigation.md
-
-General topics
---------------
-
-* Zed's features: features.md
-* Essential keyboard shortcuts: cheatsheet.md
-* Configuring and extending Zed: configuration.md
 
 Specific features
 -----------------
@@ -29,3 +32,10 @@ Specific features
 * Split-view editing: split.md
 * Multiple cursors: cursors.md
 * CTags: ctags.md
+
+Development
+-----------
+Want to hack on the Zed codebase itself? Fantastic! It's all just HTML, JavaScript and CSS so it's easy. Here are some pointers:
+
+* Zed implementation architecture: dev/index.md
+* Editor architecture: dev/editor.md

@@ -1,4 +1,5 @@
 /*global chrome*/
+
 function showProjects() {
     chrome.app.window.create('open.html', {
         frame: 'chrome',
@@ -11,63 +12,92 @@ function showProjects() {
 
 chrome.app.runtime.onLaunched.addListener(showProjects);
 
-var timeOut;
+// Extension handling
+var extensions = {};
+var projects = {};
+var reqId = 0;
+var waitingForResponse = {};
 
-function tryAgainLater() {
-    if (timeOut) {
-        clearTimeout(timeOut);
-    }
-    timeOut = setTimeout(function() {
-        listenOnLocalSocket();
-    }, 10000);
-}
-
-var MAX_RECENT_PROJECTS = 5;
-
-function addToRecentProjects(url) {
-    chrome.storage.local.get("recentProjects", function(results) {
-        var projects = results.recentProjects || [];
-        // sanity check projects array
-        if (projects.length > 0 && !projects[0].url) {
-            projects = [];
-        }
-        var existing = projects.filter(function(project) {
-            return project.url === url;
-        });
-        if (existing.length === 0) {
-            projects.splice(0, 0, {
-                url: url
-            });
-            if (projects.length > MAX_RECENT_PROJECTS) {
-                projects.splice(projects.length - 1, 1);
-            }
+chrome.runtime.onConnectExternal.addListener(function(port) {
+    var extId = port.sender.id;
+    // projects[extId] = port;
+    console.log("Extension", extId, "connected");
+    port.onMessage.addListener(function(req) {
+        if (req.replyTo !== undefined) {
+            waitingForResponse[req.replyTo](req.err, req.result);
+            delete waitingForResponse[req.replyTo];
         } else {
-            projects.splice(projects.indexOf(existing[0]), 1);
-            projects.splice(0, 0, {
-                url: url
-            });
+            switch (req.type) {
+                case 'register':
+                    extensions[extId] = {
+                        name: req.name,
+                        version: req.version,
+                        config: req.config,
+                        port: port
+                    };
+                    port.postMessage({
+                        replyTo: req.reqId,
+                        err: null,
+                        result: "Registered"
+                    });
+                    triggerConfigReloads();
+                    break;
+                case 'api':
+                    var project = projects[req.project];
+                    if(!project) {
+                        return console.error("No such project:", req.project);
+                    }
+                    project.contentWindow.execSandboxApi(req.api, req.args, function(err, result) {
+                        port.postMessage({
+                            replyTo: req.reqId,
+                            err: err,
+                            result: result
+                        });
+                    });
+                    break;
+                default:
+                    port.postMessage({
+                        replyTo: req.reqId,
+                        err: "Don't understand: " + req.type
+                    });
+            }
         }
-        chrome.storage.local.set({
-            recentProjects: projects
-        });
     });
+    port.onDisconnect.addListener(function() {
+        delete extensions[extId];
+        console.log("Extension", extId, "unregistered");
+        triggerConfigReloads();
+    });
+});
+
+function triggerConfigReloads() {
+    console.log("Going to trigger reloads");
+    for (var p in projects) {
+        var projectWin = projects[p];
+        console.log("Reloading config for:", p);
+        projectWin.contentWindow.eventbus.emit("configneedsreloading");
+    }
 }
 
-function listenOnLocalSocket() {
-    var ws = new WebSocket("ws://localhost:7336/signalsocket");
-    ws.onerror = tryAgainLater;
-    ws.onclose = tryAgainLater;
-    ws.onmessage = function(event) {
-        var title = event.data.substring("http://localhost:7336/fs/local".length);
-        chrome.app.window.create('editor.html?url=' + event.data + '&title=' + title + '&chromeapp=true', {
-            frame: 'chrome',
-            width: 720,
-            height: 400,
-        }, function(win) {
-            win.drawAttention();
-        });
-        addToRecentProjects(event.data);
-    };
+function sendExtensionRequest(extId, req, callback) {
+    reqId++;
+    waitingForResponse[reqId] = callback;
+    req.reqId = reqId;
+    extensions[extId].port.postMessage(req);
 }
 
-listenOnLocalSocket();
+window.execExtensionCommand = function(project, name, spec, info, callback) {
+    sendExtensionRequest(spec.extId, {
+        type: 'command',
+        project: project,
+        name: name,
+        spec: spec,
+        info: info
+    }, callback);
+};
+
+window.getAllConfigs = function() {
+    return Object.keys(extensions).map(function(extId) {
+        return extensions[extId].config;
+    });
+};

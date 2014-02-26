@@ -2,7 +2,7 @@
 define(function(require, exports, module) {
 
     var config = require("../config");
-    
+
     return {
         pushProject: function(name, url) {
             chrome.storage.local.get("recentProjects", function(results) {
@@ -31,13 +31,36 @@ define(function(require, exports, module) {
                 } else {
                     projects.splice(projects.indexOf(existing[0]), 1);
                     projects.splice(0, 0, {
-                        name: name,
+                        name: existing[0].name,
                         url: url
                     });
                     chrome.storage.local.set({
                         recentProjects: projects
                     });
                 }
+            });
+        },
+        renameProject: function(url, name, callback) {
+            chrome.storage.local.get("recentProjects", function(results) {
+                var projects = results.recentProjects || [];
+                var project = _.findWhere(projects, {
+                    url: url
+                });
+                project.name = name;
+                chrome.storage.local.set({
+                    recentProjects: projects
+                }, callback);
+            });
+        },
+        removeProject: function(url, callback) {
+            chrome.storage.local.get("recentProjects", function(results) {
+                var projects = results.recentProjects || [];
+                projects = _.filter(projects, function(project) {
+                    return project.url !== url;
+                });
+                chrome.storage.local.set({
+                    recentProjects: projects
+                }, callback);
             });
         },
         getProjects: function(callback) {
@@ -47,9 +70,6 @@ define(function(require, exports, module) {
                 if (projects.length > 0 && !projects[0].url) {
                     projects = [];
                 }
-                _.each(projects, function(project) {
-                    project.name = project.name || project.url.replace("http://localhost:7336/fs/local/", "");
-                });
                 callback(null, projects);
             });
         }

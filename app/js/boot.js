@@ -3,16 +3,14 @@ require.config({
     baseUrl: "js",
     paths: {
         "text": "../dep/text",
-        "async": "../dep/async"
+        "async": "../config/api/zed/lib/async"
     },
 });
 
 /* global ace, $, _ */
-require(["text!../manual/cheatsheet.md"], function(cheatsheet) {
+require(["text!../manual/intro.md"], function(introText) {
     "use strict";
-
-    var useragent = ace.require("ace/lib/useragent");
-
+    
     var modules = [
         "./command",
         "./editor",
@@ -32,23 +30,23 @@ require(["text!../manual/cheatsheet.md"], function(cheatsheet) {
         "./file",
         "./preview",
         "./dnd",
-        "./events"
+        "./handlers",
+        "./fix",
+        "./theme"
     ];
     require(modules, function() {
         var session_manager = require("./session_manager");
 
-        if (!useragent.isMac) {
-            $("body").addClass("non_mac");
-        }
-
-        session_manager.specialDocs['zed:start'] = {
+        session_manager.specialDocs['zed::start'] = {
             mode: 'ace/mode/markdown',
-            content: cheatsheet
+            content: introText
         };
 
         _.each(arguments, function(module) {
             if (module.hook) module.hook();
         });
+        
+        
         _.each(arguments, function(module) {
             if (module.init) module.init();
         });

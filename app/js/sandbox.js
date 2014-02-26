@@ -12,6 +12,8 @@
 /*global define, $, _ */
 define(function(require, exports, module) {
     var command = require("./command");
+    var bgPage = require("./lib/background_page");
+    var options = require("./lib/options");
 
     var sandboxEl;
     var id;
@@ -23,10 +25,19 @@ define(function(require, exports, module) {
      */
     function resetSandbox() {
         if (sandboxEl) {
+            // sandboxEl[0].clearData({}, {cache: true}, function() {
+            // });
             sandboxEl.remove();
         }
-        $("body").append('<iframe src="sandbox.html" id="sandbox" style="display: none;">');
+        $("body").append('<webview id="sandbox" src="data:text/html,<html><body>Right click and choose Inspect Element to open error console.</body></html>">');
         sandboxEl = $("#sandbox");
+        var sandbox = sandboxEl[0];
+        sandboxEl.css("left", "-1000px");
+        sandbox.addEventListener("contentload", function() {
+            sandbox.executeScript({
+                code: require("text!../dep/require.js") + require("text!../dep/underscore-min.js") + require("text!./sandbox_webview.js")
+            });
+        });
         waitingForReply = {};
         id = 0;
     }
@@ -40,7 +51,7 @@ define(function(require, exports, module) {
      */
     function handleApiRequest(event) {
         var data = event.data;
-        require(["./sandbox/impl/" + data.module], function(mod) {
+        require(["./sandbox/" + data.module], function(mod) {
             if (!mod[data.call]) {
                 return event.source.postMessage({
                     replyTo: data.id,
@@ -77,6 +88,19 @@ define(function(require, exports, module) {
         }
     });
 
+
+    window.execSandboxApi = function(api, args, callback) {
+        var parts = api.split('.');
+        var mod = parts.slice(0, parts.length - 1).join('/');
+        var call = parts[parts.length - 1];
+        require(["./sandbox/" + mod], function(mod) {
+            if (!mod[call]) {
+                return callback("No such method: " + call);
+            }
+            mod[call].apply(this, args.concat([callback]));
+        });
+    };
+
     /**
      * Programmatically call a sandbox command, the spec argument has the following keys:
      * - scriptUrl: the URL (http, https or relative local path) of the require.js module
@@ -84,24 +108,44 @@ define(function(require, exports, module) {
      * Any other arguments added in spec are passed along as the first argument to the
      * module which is executed as a function.
      */
-    exports.execCommand = function(spec, session, callback) {
-        id++;
-        waitingForReply[id] = callback;
-        var scriptUrl = spec.scriptUrl;
-        if(scriptUrl[0] === "/") {
-            scriptUrl = "configfs!" + scriptUrl;
+    exports.execCommand = function(name, spec, session, callback) {
+        if (session.$cmdInfo) {
+            spec = _.extend(spec, session.$cmdInfo);
+            session.$cmdInfo = null;
         }
-        sandboxEl[0].contentWindow.postMessage({
-            url: scriptUrl,
-            data: _.extend({
+        if (spec.extId) {
+            // Extension call
+            bgPage.getBackgroundPage().execExtensionCommand(options.get("url"), name, spec, {
                 path: session.filename
-            }, spec),
-            id: id
-        }, '*');
+            }, callback);
+        } else {
+            id++;
+            waitingForReply[id] = callback;
+            var scriptUrl = spec.scriptUrl;
+            if (scriptUrl[0] === "/") {
+                scriptUrl = "configfs!" + scriptUrl;
+            }
+            sandboxEl[0].contentWindow.postMessage({
+                url: scriptUrl,
+                data: _.extend({
+                    path: session.filename
+                }, spec),
+                id: id
+            }, '*');
+        }
     };
-
+    
     command.define("Sandbox:Reset", {
         exec: resetSandbox,
         readOnly: true
     });
+    
+    command.define("Sandbox:Show", {
+        exec: function() {
+            sandboxEl.css("left", "50px");
+            setTimeout(function() {
+                sandboxEl.css("left", "-1000px");
+            }, 5000);
+        }
+    })
 });

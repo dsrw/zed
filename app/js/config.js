@@ -4,9 +4,11 @@ define(function(require, exports, module) {
     var configfs = null;
     var eventbus = require("./lib/eventbus");
     var async = require("./lib/async");
+    var bgPage = require("./lib/background_page");
 
     eventbus.declare("configchanged");
     eventbus.declare("configavailable");
+    eventbus.declare("configneedsreloading");
 
     var minimumConfiguration = {
         imports: [
@@ -15,7 +17,8 @@ define(function(require, exports, module) {
         modes: {},
         keys: {},
         commands: {},
-        events: {}
+        handlers: {},
+        themes: {}
     };
 
     var config = _.extend({}, minimumConfiguration);
@@ -25,6 +28,7 @@ define(function(require, exports, module) {
 
     exports.hook = function() {
         eventbus.on("loadedfilelist", loadConfiguration);
+        eventbus.on("configneedsreloading", loadConfiguration);
 
         eventbus.on("sessionsaved", function(session) {
             if (session.filename === "/zedconfig.json") {
@@ -123,11 +127,12 @@ define(function(require, exports, module) {
                     }
                     try {
                         var json = JSON.parse(text);
-                        expandConfiguration(json, next);
                     } catch (e) {
-                        console.error(e);
+                        console.error("In file", imp, e);
                         next();
+                        return;
                     }
+                    expandConfiguration(json, next);
                 }
 
                 configfs.readFile(imp, handleFile);
@@ -153,7 +158,7 @@ define(function(require, exports, module) {
         config.preferences[key] = value;
         whenConfigurationAvailable(function() {
             userConfig.preferences[key] = value;
-            configfs.writeFile("/user.json", JSON.stringify(config, null, 4), function(err) {
+            configfs.writeFile("/user.json", JSON.stringify(userConfig, null, 4), function(err) {
                 if(err) {
                     console.error("Error during writing config:", err);
                 }
@@ -177,8 +182,15 @@ define(function(require, exports, module) {
         return expandedConfiguration.preferences;
     };
 
-    exports.getEvents = function() {
-        return expandedConfiguration.events;
+    exports.getHandlers = function() {
+        return expandedConfiguration.handlers;
+    };
+    
+    exports.getTheme = function(name) {
+        return expandedConfiguration.themes[name];
+    };
+    exports.getThemes = function() {
+        return expandedConfiguration.themes;
     };
 
     exports.getConfiguration = function() {
@@ -213,6 +225,10 @@ define(function(require, exports, module) {
     }
 
     exports.loadConfiguration = loadConfiguration;
+    
+    exports.getFs = function() {
+        return configfs;
+    }
 
     /**
      * Extend the project config (or the empty object, if not present)
@@ -222,6 +238,12 @@ define(function(require, exports, module) {
         var rootFile = "/user.json";
         config = superExtend(base, minimumConfiguration);
         expandedConfiguration = _.extend({}, config);
+        // Expand with extension configs
+        var extensionConfigs = bgPage.getBackgroundPage().getAllConfigs();
+        _.each(extensionConfigs, function(cfg) {
+            config = superExtend(config, cfg);
+        });
+        // Continue
         clearWatchers();
         watchFile(configfs, rootFile, loadConfiguration);
         configfs.readFile(rootFile, function(err, config_) {

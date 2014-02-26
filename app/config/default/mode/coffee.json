@@ -13,10 +13,14 @@
                 },
                 "Tools:Preview": {
                     "scriptUrl": "/default/mode/coffee/preview.js"
+                },
+                "Tools:Compile": {
+                    "scriptUrl": "/default/mode/coffee/compile.js"
                 }
             },
-            "events": {
-                "change": ["Tools:Check", "Tools:CTags"],
+            "handlers": {
+                "check": ["Tools:Check"],
+                "change": ["Tools:CTags"],
                 "preview": ["Tools:Preview"]
             }
         }
